@@ -1,25 +1,52 @@
 # blurhash_ffi
 
-A [Blurhash](https://blurha.sh) compact Image placeholder encoder and decoder FFI implementation for flutter in C, Supports Android, iOS, Linux, macOS and Windows.
+A [Blurhash](https://blurha.sh) compact Image placeholder encoder and decoder FFI implementation for Flutter in Rust via experemental feature [Native Assets](https://github.com/flutter/flutter/issues/129757).
 
 Matches the official [Blurhash](https://github.com/woltapp/blurhash) implementation in performance and quality.
 
-
 ![blurhash_ffi](https://firebasestorage.googleapis.com/v0/b/folksable-d4dc8.appspot.com/o/blurhash_ffi.png?alt=media&token=e6c7e81b-1798-403b-b055-68a1f767d21f)
 
+# Supports
+
+| Platform | Status | Description                                                                                                                                                                                                                                                                                                                                       |
+| -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Android  | ✅     | -                                                                                                                                                                                                                                                                                                                                                 |
+| iOS      | ✅     | -                                                                                                                                                                                                                                                                                                                                                 |
+| macOS    | ✅     | -                                                                                                                                                                                                                                                                                                                                                 |
+| Linux    | ⚠️   | Not tested                                                                                                                                                                                                                                                                                                                                        |
+| Windows  | ✅   | -                                                                                                                                 |
+| Web      | ❌     | Rust can compiled to WebAssembly, but no supported yet. This library compiled on standalone wasm module (not in Empscripten, AssemblyScript) that Dart can't be use non-JS enviroments. Also, Dart should use FFI bindings for call wasm module. Stopped issues: [comment](https://github.com/dart-lang/sdk/issues/37355#issuecomment-2135064545) |
+
+# Installation
+
+Add dependency to your `pubspec.yaml` file following the command below:
+
+
+For dart projects:
+
+```sh
+dart pub add dart_blurhash_ffi
+```
+
+For flutter projects:
+
+```sh
+dart pub add flutter_blurhash_ffi
+```
 
 ## Usage
+
 To use this plugin, add `blurhash_ffi` as a dependency in your pubspec.yaml file
 
-**One Step (both Encoding & Decoding) Usage**
+**Flutter usage**
+
 ```dart
-import 'package:blurhash_ffi/blurhash_ffi.dart';
+import 'package:flutter_blurhash_ffi/flutter_blurhash_ffi.dart';
 
 /// Encoding and Decoding all in One Step
 ///
 /// `ImageProvider` in    -> Send your Image to be encoded.
 /// `ImageProvider` out   -> Get your blurry image version.
-
 class BlurhashMyImage extends StatelessWidget {
   final String imageUrl;
   const BlurhashMyImage({required this.imageUrl, super.key});
@@ -27,9 +54,11 @@ class BlurhashMyImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Image(
-      image: BlurhashTheImage(
+      image: BlurhashFfiImage.fromImageProvider(
         NetworkImage(imageUrl),  // you can use any image provider of your choice.
-          decodingHeight: 1920, decodingWidth: 1080),
+        decodingHeight: 1920,
+        decodingWidth: 1080,
+      ),
       alignment: Alignment.center,
       fit: BoxFit.cover
     );
@@ -37,106 +66,79 @@ class BlurhashMyImage extends StatelessWidget {
 }
 
 
+class BlurhashMyImage2 extends StatelessWidget {
+  final String blurhash;
+  const BlurhashMyImage2({required this.blurhash, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Image(
+      image: BlurhashFfiImage(blurhash),
+      width: 200,
+      height: 200,
+      alignment: Alignment.center,
+      fit: BoxFit.cover
+    );
+  }
+}
+
 ```
+
+> [!WARNING]
+> Not recommend use it (without _blurhash string param_), because in this case, encoding and decoding will be performed. This effect can be obtained almost through [ImageFiltered](https://api.flutter.dev/flutter/widgets/ImageFiltered-class.html).
 
 **Encoding**
 
-<?code-excerpt "readme_excerpts.dart (Example)"?>
-```dart
-import 'package:blurhash_ffi/blurhash_ffi.dart';
+Encoding now uses sync interface (without `Future`).
 
-/// Encoding a blurhash from an image provider
-///
-/// You can use any ImageProvider you want, including NetworkImage, FileImage, MemoryImage, AssetImage, etc.
-final imageProvider = NetworkImage('https://picsum.photos/512');
-final imageProvider2 = AssetImage('assets/image.jpg');
+<?code-excerpt "readme_excerpts.dart (Example)"?>
+
+```dart
+import 'package:dart_blurhash_ffi/dart_blurhash_ffi.dart';
+
+final Uint8List blurhashImageBytes = File('assets/image.webp').readAsBytesSync();
 
 /// Signature
-/// static Future<String> encode(
-///   ImageProvider imageProvider, {
+/// static String encode(
+///   Uint8List data, {
 ///   int componentX = 4,
 ///   int componentY = 3,
 /// })
 /// may throw `BlurhashFFIException` if encoding fails.
-final String blurHash = await BlurhashFFI.encode(imageProvider);
+final String blurHash = BlurhashFFI.encode(blurhashImageBytes);
+
+// Or via codec
+
+final String blurHashSame = BlurhashFfiCodec().encoder.convert(blurhashImageBytes);
 
 ```
 
 **Decoding**
+
+Decoding now uses sync interface (without `Future`).
+
 ```dart
-import 'package:blurhash_ffi/blurhash_ffi.dart';
-import 'dart:ui' as ui;
-/// You have 3 ways to decode a blurhash 
+import 'package:dart_blurhash_ffi/dart_blurhash_ffi.dart';
+
+final String blurhash = 'LGFO~6Yk^6#M@-5c,1Ex@@or[j6o';
+
+/// Signature
 ///
-/// 1. Using the `BlurhashFfi` widget
-/// 2. Using the `BlurhashFfiImage` ImageProvider
-/// 3. Using the `BlurhashFfi.decode` static method
-
-/// 1. Using the `BlurhashFfi` widget (same constructor as flutter_blurhash's Blurhash widget)
-class BlurHashApp extends StatelessWidget {
-  const BlurHashApp({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) => MaterialApp(
-    home: Scaffold(
-      appBar: AppBar(title: const Text("BlurHash")),
-      body: const SizedBox.expand(
-        child: Center(
-          child: AspectRatio(
-            aspectRatio: 1.6,
-            child: BlurhashFfi(hash: "L5H2EC=PM+yV0g-mq.wG9c010J}I"),
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-/// 2. Using the `BlurhashFfiImage` ImageProvider
-final imageProvider = BlurhashFfiImage("L5H2EC=PM+yV0g-mq.wG9c010J}I");
-class BlurHashApp2 extends StatelessWidget {
-  const BlurHashApp2({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) => MaterialApp(
-    home: Scaffold(
-      appBar: AppBar(title: const Text("BlurHash")),
-      body: const SizedBox.expand(
-        child: Center(
-          child: AspectRatio(
-            aspectRatio: 1.6,
-            child: Image(
-              image: imageProvider,
-              fit: BoxFit.cover, 
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-/// 3. Using the `BlurhashFfi.decode` static method which returns dart:ui.Image
-/// Signature 
-/// static Future<ui.Image> decode(
-///   String blurHash, {
+/// static Uint8List decode(
+///   String blurhash, {
 ///   int width = 32,
 ///   int height = 32,
 ///   int punch = 1,
 /// })
 /// may throw `BlurhashFFIException` if decoding fails.
-final ui.Image image = await BlurhashFFI.decode("L5H2EC=PM+yV0g-mq.wG9c010J}I");
-```
+final decoded = BlurhashFFI.decode(blurhash);
 
-**Release Isolate and it's memory**
+// or via codec
 
-do this only when you are done with encoding/decoding blurhashes
-```dart
-import 'package:blurhash_ffi/blurhash_ffi.dart';
-
-BlurhashFFi.free();
+final String decodedSame = BlurhashFfiCodec().decoder.convert(blurhash);
 
 ```
-check the [example](./example/) for more details
+
+Check the [example](./packages/flutter_blurhash_ffi/example/) for more details
 
 **contributions in the form of PR's and Issues are a welcome**
