@@ -113,7 +113,10 @@ class BlurhashFFI {
 
   /// The dynamic library in which the symbols for [BlurhashFfiBindings] can be found.
   DynamicLibrary get _dylib {
-    if (Platform.isMacOS || Platform.isIOS) {
+    if (Platform.isIOS) {
+      return DynamicLibrary.process();
+    }
+    if (Platform.isMacOS) {
       return DynamicLibrary.open('$_libName.framework/$_libName');
     }
     if (Platform.isAndroid || Platform.isLinux) {
