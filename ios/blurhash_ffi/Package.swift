@@ -22,6 +22,7 @@ let package = Package(
       dependencies: [
         .product(name: "FlutterFramework", package: "FlutterFramework"),
       ],
+      publicHeadersPath: "include",
     ),
   ],
 )
